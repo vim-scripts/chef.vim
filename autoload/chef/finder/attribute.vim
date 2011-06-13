@@ -1,43 +1,20 @@
 let s:finder = {}
 
-function s:finder.condition(e)  "{{{1
-    let a:e.attr = s:extract_attribute(a:e.cWORD)
-    if g:ChefDebug
-        call self.debug('extracted attr is ' . a:e.attr)
-    endif
-    return !empty(a:e.attr)
+function s:finder.condition()  "{{{1
+    let self.env.attr = s:extract_attribute(self.env.cWORD)
+    call self.debug('extracted attr is ' . self.env.attr)
+    return !empty(self.env.attr)
 endfunction
 
-function s:finder.find(e) "{{{1
-    let attr_list = s:scan(a:e.attr, '\[\(.\{-}\)\]\+')
-    if len(attr_list) < 2
-        return
-    endif 
-    let  recipe = s:clean_attr(attr_list[0])
-
-    let path = join([ a:e.path.cookbooks, recipe, 'attributes' ], '/')
-    let candidate = split(globpath(path, "*.rb", 1),"\n")
-
-    " make current recipe's attribute dir into candidate because definition is ambiguous.
-    " ex) apache2 recip's have node[:apache][:listen_ports].
-    let candidate += split(globpath(a:e.path.attributes, "*.rb", 1),"\n")
-
-
-    if g:ChefDebug
-        call self.debug(candidate)
-    endif
-
-
+function s:finder.find() "{{{1
     let found_attribute = 0
     try "{{{
-        for pattern in s:search_patterns_for(a:e.attr)
-            for file in candidate
-                if g:ChefDebug
-                    call self.debug('search ' . pattern . ' in file ' . file )
-                endif
+        for pattern in self.attr_patterns()
+            for file in self.candidate()
+                call self.debug('search ' . pattern . ' in file ' . file )
 
                 if match(readfile(file), pattern) != -1
-                    exe 'silent ' . a:e.editcmd . ' ' . file
+                    call self.edit(file)
                     keepjump normal! gg
                     call search(pattern, 'e')
                     normal! hzz
@@ -50,12 +27,46 @@ function s:finder.find(e) "{{{1
         let found_attribute = 1
     endtry "}}}
 
-    if ! found_attribute
-        echo "couldn't find attributes"
+    if found_attribute
+        return 1
+    else
+        call self.msghl([[self.env.attr, "Identifier"],["not found", "Normal"]], " ") 
+        return 0
     endif
 endfunction
 
-function! s:scan(str, pattern)
+function! s:finder.candidate() "{{{1
+    let attr_list = s:scan(self.env.attr, '\[\(.\{-}\)\]\+')
+    if len(attr_list) < 2
+        return []
+    endif 
+    let candidate = []
+    let recipe_name = s:clean_attr(attr_list[0])
+
+    let attributes_dir = join([ self.env.path.cookbooks, recipe_name, 'attributes' ], '/')
+
+    if isdirectory( attributes_dir )
+        let candidate += split(globpath(attributes_dir, "*.rb", 1),"\n")
+    else
+        let candidate += split(globpath(self.env.path.attributes, "*.rb", 1),"\n")
+    endif
+
+    call self.debug("pre-prioritize: " . string(candidate))
+    if attributes_dir == self.env.path.attributes
+        " If there is attribute file which have same file name as current
+        " recipe, it should be more likely contain target attribute.
+        let f   = join([ self.env.path.attributes, self.env.basename ], '/')
+        let idx = index(candidate, f)
+        if idx != -1
+            let f = remove(candidate, idx)
+            call insert(candidate, f)
+        endif
+    endif
+    call self.debug("post-prioritize: " . string(candidate))
+    return candidate
+endfunction
+
+function! s:scan(str, pattern) "{{{1
     let ret = []
     let pattern = a:pattern
     let nth = 1
@@ -74,8 +85,8 @@ function! s:clean_attr(str) "{{{1
   return substitute(a:str,'[:"'']','','g')
 endfunction
 
-function! s:search_patterns_for(attr) "{{{1
-    let attr = a:attr
+function! s:finder.attr_patterns() "{{{1
+    let attr = self.env.attr
     let idx = 0
     let candidate = []
     while 1
@@ -90,7 +101,8 @@ function! s:search_patterns_for(attr) "{{{1
 endfunction
 
 function! s:extract_attribute(str) "{{{1
-    let m =  matchlist(a:str, '\(node\[.*\]\)')
+    " let m =  matchlist(a:str, '\(node\[.*\]\)')
+    let m =  matchlist(a:str, '\(node\[[^}]*\]\)')
     if !empty(m)
         return m[1]
     else
@@ -99,6 +111,6 @@ function! s:extract_attribute(str) "{{{1
 endfunction
 
 function! chef#finder#attribute#new() "{{{1
-  return chef#finder#new("AttributeFinder", s:finder)
+    return chef#finder#new("Attribute", s:finder)
 endfunction
 " vim: set sw=4 sts=4 et fdm=marker:

@@ -1,31 +1,44 @@
 let s:finder = {}
 
-function s:finder.find(e) "{{{1
+let s:relation  = {
+            \ 'recipes': "attributes",
+            \ 'attributes': "recipes",
+            \ }
+function s:finder.find() "{{{1
     let candidate = []
-    let relation  = {
-                \ 'recipes': "attributes",
-                \ 'attributes': "recipes",
-                \ }
-    let related =  get(relation, a:e.type_name,"")
+    let related =  get(s:relation, self.env.type_name,"")
     if !empty(related)
         let candidate = [
-                    \ a:e.path[related] . "/" . a:e.basename,
-                    \ a:e.path[related] . "/" . "default.rb"
+                    \ self.env.path[related] . "/" . self.env.basename,
+                    \ self.env.path[related] . "/" . "default.rb"
                     \ ]
     endif
-    if g:ChefDebug
-        call self.debug(candidate)
-    endif
+
+    call self.debug(candidate)
+    let related_found = 0
+
     for file in candidate
         if filereadable(file)
-            execute a:e.editcmd . ' ' . file
+            let related_found = 1
+            call self.edit(file)
             break
         endif
     endfor
+
+    if  related_found
+        return 1
+    else
+        if !empty(related)
+            call self.msg(related . "not found")
+        else
+            call self.msg("can't detemine related file")
+        endif
+        return 0
+    endif
 endfunction
 
 function! chef#finder#related#new() "{{{1
-  return chef#finder#new("RelatedFinder", s:finder)
+    return chef#finder#new("Related", s:finder)
 endfunction
 " vim: set sw=4 sts=4 et fdm=marker:
 
