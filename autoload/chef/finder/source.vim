@@ -1,7 +1,7 @@
 let s:finder = {}
 
 function s:finder.condition() "{{{1
-    return (self.env.line =~# '\s\+source\s\+' && self.env.cword !=# 'source')
+    return (self.env.line =~# '\s\+source\>' && self.env.cword !=# 'source')
 endfunction
 
 function s:finder.find() "{{{1
@@ -20,6 +20,6 @@ function s:finder.find() "{{{1
 endfunction
 
 function! chef#finder#source#new() "{{{1
-    return chef#finder#new("Source", s:finder)
+    return chef#finder#new(s:finder)
 endfunction
 " vim: set sw=4 sts=4 et fdm=marker:

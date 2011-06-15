@@ -1,3 +1,10 @@
+                         ______   __               ____
+                        / ____/  / /_     ___     / __/
+                       / /      / __ `   / _ `   / /_  
+                      / /___   / / / /  /  __/  / __/  
+                      `____/  /_/ /_/   `___/  /_/    
+                                - easy jump to target!!
+
 What is this?
 ==================================
 chef.vim is plugin which make it easy for

@@ -1,8 +1,7 @@
 let s:finderBase = {}
 
-function! s:finderBase.new(id, finder) "{{{1
+function! s:finderBase.new(finder) "{{{1
     let o = deepcopy(self)
-    let o.id = a:id
     call extend(o, a:finder, 'force')
     return o
 endfunction
@@ -69,9 +68,8 @@ function! s:finderBase.debug(msg) "{{{1
     echo "[". self.id ."] " . string(a:msg)
 endfunction
 
-function! chef#finder#new(id, finder) "{{{1
-    let finder = s:finderBase.new(a:id, a:finder)
-    call finder.debug("initialized")
+function! chef#finder#new(finder) "{{{1
+    let finder = s:finderBase.new(a:finder)
     return finder
 endfunction
 " vim: set sw=4 sts=4 et fdm=marker:

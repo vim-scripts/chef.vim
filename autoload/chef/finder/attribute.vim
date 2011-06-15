@@ -40,18 +40,13 @@ function! s:finder.candidate() "{{{1
     if len(attr_list) < 2
         return []
     endif 
-    let candidate = []
     let recipe_name = s:clean_attr(attr_list[0])
 
     let attributes_dir = join([ self.env.path.cookbooks, recipe_name, 'attributes' ], '/')
 
-    if isdirectory( attributes_dir )
-        let candidate += split(globpath(attributes_dir, "*.rb", 1),"\n")
-    else
-        let candidate += split(globpath(self.env.path.attributes, "*.rb", 1),"\n")
-    endif
+    let candidate = split(globpath(self.env.path.cookbooks, '*/attributes/*.rb', 1),"\n")
 
-    call self.debug("pre-prioritize: " . string(candidate))
+    " call self.debug("pre-prioritize: " . string(candidate))
     if attributes_dir == self.env.path.attributes
         " If there is attribute file which have same file name as current
         " recipe, it should be more likely contain target attribute.
@@ -62,7 +57,7 @@ function! s:finder.candidate() "{{{1
             call insert(candidate, f)
         endif
     endif
-    call self.debug("post-prioritize: " . string(candidate))
+    " call self.debug("post-prioritize: " . string(candidate))
     return candidate
 endfunction
 
@@ -81,28 +76,41 @@ function! s:scan(str, pattern) "{{{1
     return ret
 endfunction
 
+function! s:attr_quote(attr)
+    let tmp = substitute(a:attr, ":", '','g')
+    let tmp = substitute(tmp, "[", "['",'g')
+    return substitute(tmp, "]", "']",'g')
+endfunction
+
+function! s:attr_symbolize(attr)
+    let tmp = substitute(a:attr, "'", '','g')
+    return substitute(tmp, "[", '[:','g')
+endfunction
+
 function! s:clean_attr(str) "{{{1
   return substitute(a:str,'[:"'']','','g')
 endfunction
 
 function! s:finder.attr_patterns() "{{{1
-    let attr = self.env.attr
-    let idx = 0
+    let attr = matchlist(self.env.attr, '[.*\]')[0]
+    let idx = len(attr)
     let candidate = []
+    let s:attr_translator = (match(attr, ':') != -1)
+                \ ? function("s:attr_quote")
+                \ : function("s:attr_symbolize")
     while 1
-        let idx += 1
-        let idx = stridx(attr,'[',idx+1)
-        if idx == -1
-            break
-        endif
-        call add(candidate, escape(attr[idx : ], '[]') )
+        let idx = strridx(attr, ']', idx-1)
+        if idx == -1| break | endif
+        let org = attr[ : idx ]
+        call add(candidate, org)
+        call add(candidate, call(s:attr_translator,[org]))
     endwhile
-    return candidate
+    return map(candidate, "escape(v:val, '[]')")
 endfunction
 
 function! s:extract_attribute(str) "{{{1
-    " let m =  matchlist(a:str, '\(node\[.*\]\)')
-    let m =  matchlist(a:str, '\(node\[[^}]*\]\)')
+    " let m =  matchlist(a:str, '\(node\[[^}]*\]\)')
+    let m =  matchlist(a:str, '\(\w\+\[[^}]*\]\)')
     if !empty(m)
         return m[1]
     else
@@ -111,6 +119,6 @@ function! s:extract_attribute(str) "{{{1
 endfunction
 
 function! chef#finder#attribute#new() "{{{1
-    return chef#finder#new("Attribute", s:finder)
+    return chef#finder#new(s:finder)
 endfunction
 " vim: set sw=4 sts=4 et fdm=marker:
