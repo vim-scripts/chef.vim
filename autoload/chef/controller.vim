@@ -27,7 +27,7 @@ function! s:Controller.main(...) "{{{1
     call self.debug('find finish ' . finder.id)
 
     if success
-        for s:hook in g:chef.hooks
+        for s:hook in get(g:chef, "hooks", [])
             call self.debug('calling hook ' . s:hook )
             if type(function(s:hook)) == 2
                 call call(function(s:hook),[env])
@@ -80,6 +80,11 @@ endfunction
 
 function! chef#controller#findDefinition(...) "{{{1
     let s:Controller.finders = [ s:finder_for("Definition") ]
+    call call(s:Controller.main, a:000, s:Controller)
+endfunction
+
+function! chef#controller#findLWRP(...) "{{{1
+    let s:Controller.finders = [ s:finder_for("LWRP") ]
     call call(s:Controller.main, a:000, s:Controller)
 endfunction
 
